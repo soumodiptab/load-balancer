@@ -1,16 +1,30 @@
 import {Router,Request,Response} from "express";
 import { BaseAlgo } from "../algorithm/BaseAlgo";
-import * as proxy from "http-proxy-middleware";
+import {createProxyMiddleware} from "http-proxy-middleware";
 export class ProxyRouter{
+    private static instance: ProxyRouter;
+    private cookie: string;
     router: Router;
-    constructor(algo : BaseAlgo){
+    constructor(){
         this.router = Router();
+        this.cookie = 'lb-affinity';
     }
     public initializeProxy(algorithm: BaseAlgo){
-        this.router.all('*',(req,res)=>{
-            let server = algorithm.getServer();
-            let proxyOpts = this.getProxyOpts(server.getURI());
-            proxy(proxyOpts)(req,res);
+        this.router.all('*',async(req,res)=>{
+            try{
+                let server =await algorithm.getHealthyServer();
+                let proxyOpts = this.getProxyOpts(server.getURI());
+                let proxy =createProxyMiddleware(proxyOpts);
+                proxy(req,res,(err:any)=>{
+                    if(err){
+                        console.log('ERROR in proxy')
+                    };
+                })
+            }
+            catch(err){
+                console.log(err);
+                res.send('All servers offline');
+            }
         })
     }
     public getRouter(): Router{
@@ -26,5 +40,10 @@ export class ProxyRouter{
             logLevel:'debug'
         };
     }
-    
+    public static getInstance(): ProxyRouter{
+        if(!ProxyRouter.instance){
+            ProxyRouter.instance = new ProxyRouter();
+        }
+        return ProxyRouter.instance;
+    }
 }

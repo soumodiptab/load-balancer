@@ -6,18 +6,19 @@ export class Server{
     private uri : string
     private api : string
     private alive : Boolean
-    private timerId : NodeJS.Timeout
+    //private timerId : NodeJS.Timeout
     constructor(uri:string,api:string){
         this.id = uuidv4();
         this.uri = uri;
-        this.api = api || 'health';
+        this.api = api || '';
         this.alive = false;
         //initiate watcher
-        this.timerId =setTimeout(this.checkHealth,2000);
+        //this.timerId =setTimeout(this.checkHealth,2000);
     }
-    public async checkHealth(){
+    public async checkHealth(): Promise<Boolean>{
         try{
-            let resp = await axios.get(this.uri+"/"+this.api,{
+            const actualURI = (this.api)? this.uri+"/"+this.api : this.uri;
+            let resp = await axios.get(actualURI,{
                 timeout: 1000
             });
             if(resp.status != 200)
@@ -29,14 +30,14 @@ export class Server{
         }
         return this.alive;
     }
-    public getHealth(){
-        return this.alive;
+    public async getHealth(): Promise<Boolean>{
+        return  await this.checkHealth();
     }
     public getURI(){
         return this.uri;
     }
-    public shutWatcher(){
-        if(this.timerId)
-            clearInterval(this.timerId);
-    }
+    // public shutWatcher(){
+    //     if(this.timerId)
+    //         clearInterval(this.timerId);
+    // }
 }
