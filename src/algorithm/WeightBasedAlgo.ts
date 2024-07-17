@@ -3,7 +3,4 @@ export class WeightBasedAlgo extends BaseAlgo{
     constructor(){
         super();
     }
-    public getServer(): Server{
-        
-    }
 }

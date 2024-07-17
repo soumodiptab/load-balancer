@@ -4,41 +4,40 @@ import {createProxyMiddleware} from "http-proxy-middleware";
 export class ProxyRouter{
     private static instance: ProxyRouter;
     private cookie: string;
+    private proxy:any;
+    private serverURI:string;
     router: Router;
     constructor(){
         this.router = Router();
         this.cookie = 'lb-affinity';
+        this.serverURI ='localhost:5000'
     }
     public initializeProxy(algorithm: BaseAlgo){
-        this.router.all('*',async(req,res)=>{
+        this.proxy = createProxyMiddleware({
+            target: this.serverURI,
+            changeOrigin:true,
+            proxyTimeout:1000,
+            on:{
+                proxyReq: async(proxyReq,req, res)=>{
+                    console.log(proxyReq,req,res);
+                }
+            }
+        });
+        this.router.use(async (req,res,next)=>{
             try{
                 let server =await algorithm.getHealthyServer();
-                let proxyOpts = this.getProxyOpts(server.getURI());
-                let proxy =createProxyMiddleware(proxyOpts);
-                proxy(req,res,(err:any)=>{
-                    if(err){
-                        console.log('ERROR in proxy')
-                    };
-                })
+                this.proxy.target = server.getURI();
+                next();
             }
             catch(err){
                 console.log(err);
                 res.send('All servers offline');
             }
         })
+        this.router.all('/',this.proxy);
     }
     public getRouter(): Router{
         return this.router;
-    }
-    private getProxyOpts(uri: string){
-        return {
-            target: uri,
-            changeOrigin: true,
-            onProxyReq : (proxyReq : any, req: any)=>{
-                proxyReq.setHeader('X-Special-Proxy-Header', '<LOAD-BALANCER>');
-            },
-            logLevel:'debug'
-        };
     }
     public static getInstance(): ProxyRouter{
         if(!ProxyRouter.instance){
